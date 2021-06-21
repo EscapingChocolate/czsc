@@ -1,6 +1,7 @@
 from typing import Dict
 
 from czsc.jq import get_main_quote
+from czsc.jq import get_quotes
 from czsc.quote import *
 
 # 构成一笔最少新高/新低行情数量
@@ -160,6 +161,14 @@ class Czsc:
                         self.uncertain_drawing_extremum = quote.low
                         self.uncertain_drawing_continues_extremum_count = 1
 
+    def get_drawings(self):
+        drawings = self.drawing_points[:]
+        if len(self.already_drawing_quotes) > 0:
+            drawings.append(
+                CzscPoint(PointType.TOP if self.already_drawing_quotes_direct is DirectType.UP else PointType.BOTTOM,
+                          self.already_drawing_quotes[-1]))
+        return drawings
+
     # 打印笔
     def print_drawings(self):
         for drawing_point in self.drawing_points:
@@ -240,6 +249,12 @@ class Czsc:
                     self.already_segment_direct[level] = DirectType.UP
                     self.uncertain_segment_points[level].clear()
 
+    def get_segments(self, level: QuoteLevel):
+        segments = self.segments[level][:]
+        if len(self.already_segment_points[level]) > 0:
+            segments.append(self.already_segment_points[level][-1])
+        return segments
+
     def print_segments(self, level: QuoteLevel):
         print("segment points level " + level.label)
         for p in self.segments[level]:
@@ -249,56 +264,8 @@ class Czsc:
 
 
 if __name__ == '__main__':
-    # quotes = list()
-    # # up
-    # quotes.append(Quote(10, 10, 11, 10, 10000, datetime(2020, 1, 1)))
-    # quotes.append(Quote(10, 10, 12, 11, 10000, datetime(2020, 1, 2)))
-    # quotes.append(Quote(10, 10, 13, 12, 10000, datetime(2020, 1, 3)))
-    # quotes.append(Quote(10, 10, 14, 13, 10000, datetime(2020, 1, 4)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 5)))
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 6)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 7)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 8)))
-    # quotes.append(Quote(10, 10, 13, 12, 10000, datetime(2020, 1, 9)))
-    # quotes.append(Quote(10, 10, 5, 5, 10000, datetime(2020, 1, 10)))
-    # quotes.append(Quote(10, 10, 18, 17, 10000, datetime(2020, 1, 11)))
-    # # down
-    # quotes.append(Quote(10, 10, 17, 16, 10000, datetime(2020, 1, 12)))
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 13)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 14)))
-    # quotes.append(Quote(10, 10, 14, 13, 10000, datetime(2020, 1, 15)))
-    # # up
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 16)))
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 17)))
-    # quotes.append(Quote(10, 10, 17, 16, 10000, datetime(2020, 1, 18)))
-    # quotes.append(Quote(10, 10, 18, 17, 10000, datetime(2020, 1, 19)))
-    # czsc = Czsc(quotes, ONE_DAY, [ONE_DAY])
-    # czsc.print_drawings()
-    #
-    # quotes = list()
-    # # down
-    # quotes.append(Quote(10, 10, 20, 19, 10000, datetime(2020, 1, 1)))
-    # quotes.append(Quote(10, 10, 19, 18, 10000, datetime(2020, 1, 2)))
-    # quotes.append(Quote(10, 10, 21, 20, 10000, datetime(2020, 1, 3)))
-    # quotes.append(Quote(10, 10, 18, 17, 10000, datetime(2020, 1, 4)))
-    # quotes.append(Quote(10, 10, 17, 16, 10000, datetime(2020, 1, 5)))
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 6)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 7)))
-    # # up
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 8)))
-    # quotes.append(Quote(10, 10, 17, 16, 10000, datetime(2020, 1, 9)))
-    # quotes.append(Quote(10, 10, 18, 17, 10000, datetime(2020, 1, 10)))
-    # quotes.append(Quote(10, 10, 19, 18, 10000, datetime(2020, 1, 11)))
-    # # down
-    # quotes.append(Quote(10, 10, 18, 17, 10000, datetime(2020, 1, 12)))
-    # quotes.append(Quote(10, 10, 17, 16, 10000, datetime(2020, 1, 13)))
-    # quotes.append(Quote(10, 10, 16, 15, 10000, datetime(2020, 1, 14)))
-    # quotes.append(Quote(10, 10, 15, 14, 10000, datetime(2020, 1, 15)))
-    # czsc2 = Czsc(quotes, ONE_DAY, [ONE_DAY])
-    # czsc2.print_drawings()
-
-    quotes = get_main_quote('IH', datetime.now(), 1000, THIRTY_MINUTE)
-    czsc3 = Czsc(quotes, THIRTY_MINUTE, [THIRTY_MINUTE,ONE_DAY])
+    quotes = get_quotes('IH8888', datetime.now(), 10000, FIVE_MINUTE)
+    czsc3 = Czsc(quotes, FIVE_MINUTE, [FIVE_MINUTE, THIRTY_MINUTE, ONE_DAY])
     czsc3.print_drawings()
     czsc3.print_segments(THIRTY_MINUTE)
     czsc3.print_segments(ONE_DAY)

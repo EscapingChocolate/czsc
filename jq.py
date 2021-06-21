@@ -6,8 +6,9 @@ from jqdatasdk import *
 
 
 def get_quotes(contract, end_time: datetime.datetime, count: int, level: QuoteLevel):
+    contract = normalize_code(contract)
     quote_list = list()
-    df = get_price(contract, end_date=end_time, frequency=level.label, count=count)
+    df = get_price(contract, end_date=end_time, frequency=level.label, count=count, skip_paused=True, fill_paused=False)
     for (time, price) in df.iterrows():
         quote_list.append(Quote(
             open_price=price['open'],

@@ -133,3 +133,4 @@ dmypy.json
 
 # key
 *.conf
+*.html
