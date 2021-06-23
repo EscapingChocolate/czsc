@@ -1,6 +1,5 @@
 from typing import Dict
 
-from czsc.jq import get_main_quote
 from czsc.jq import get_quotes
 from czsc.quote import *
 
@@ -34,6 +33,15 @@ class CzscPoint:
 
     def value(self):
         return self.quote.high if self.point_type is PointType.TOP else self.quote.low
+
+
+# 缠论中枢
+class MainCenter:
+    def __init__(self, start: datetime, end: datetime, top: float, bottom: float):
+        self.start = start
+        self.end = end
+        self.top = top
+        self.bottom = bottom
 
 
 class Czsc:

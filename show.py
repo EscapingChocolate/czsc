@@ -15,7 +15,7 @@ def show_czsc(name: str, contract, levels: [QuoteLevel], count: int):
     y_data = [[quote.open, quote.close, quote.low, quote.high] for quote in quotes]
     candle = Candlestick(init_opts=opts.InitOpts(width="1300px", height="600px"))
     candle.add_xaxis(xaxis_data=x_data)
-    candle.add_yaxis(series_name="", y_axis=y_data)
+    candle.add_yaxis(series_name="raw_quotes", y_axis=y_data)
     candle.set_series_opts()
     candle.set_global_opts(
         xaxis_opts=opts.AxisOpts(is_scale=True),
