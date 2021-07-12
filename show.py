@@ -8,15 +8,15 @@ from talib import MACD
 
 
 def show_czsc(name: str, contract, levels: [QuoteLevel]):
-    quotes = get_all_quotes(contract, levels[0])
-    macd =  MACD()
+    quotes, raw_df = get_all_quotes(contract, levels[0])
+    # macd =  MACD()
     czsc = Czsc(quotes, levels[0], levels)
     # raw quotes candle
     x_data = [quote.timestamp for quote in quotes]
     y_data = [[quote.open, quote.close, quote.low, quote.high] for quote in quotes]
     candle = Candlestick(init_opts=opts.InitOpts(width="1300px", height="600px"))
     candle.add_xaxis(xaxis_data=x_data)
-    candle.add_yaxis(series_name="raw_quotes_"+levels[0].label, y_axis=y_data)
+    candle.add_yaxis(series_name="raw_quotes_" + levels[0].label, y_axis=y_data)
     candle.set_series_opts()
     candle.set_global_opts(
         xaxis_opts=opts.AxisOpts(is_scale=True),
@@ -55,4 +55,4 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
 
 
 if __name__ == '__main__':
-    show_czsc('IH8888-30m.html', 'IH8888', [FIVE_MINUTE, THIRTY_MINUTE])
+    show_czsc('IH8888-30m.html', 'IH8888', [ONE_MINUTE,FIVE_MINUTE])
