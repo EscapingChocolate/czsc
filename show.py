@@ -1,6 +1,8 @@
 import pyecharts.options as opts
 from pyecharts.charts import Candlestick
 from pyecharts.charts import Line
+from pyecharts.charts import EffectScatter
+from pyecharts.globals import SymbolType
 from quote import *
 from jq import *
 from structure import *
@@ -50,9 +52,17 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
         segment_line.add_yaxis(series_name=level.label, y_axis=y_segment)
         candle.overlap(segment_line)
 
+    # trading points
+    for level in levels:
+        listener = czsc.already_segment_listener[level]
+        trading_point_chart = EffectScatter()
+        trading_point_chart.add_xaxis([point.quote.timestamp for point in listener.trading_points])
+        trading_point_chart.add_yaxis(level.label + "_trade", [point.value() for point in listener.trading_points],
+                                      symbol=SymbolType.ARROW)
+        candle.overlap(trading_point_chart)
     # show
     candle.render(name)
 
 
 if __name__ == '__main__':
-    show_czsc('IH8888-30m.html', 'IH8888', [ONE_MINUTE,FIVE_MINUTE])
+    show_czsc('IH8888-30m.html', 'IH8888', [ONE_MINUTE, FIVE_MINUTE])

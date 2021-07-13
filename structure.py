@@ -35,6 +35,14 @@ class CzscPoint:
         return self.quote.high if self.point_type is PointType.TOP else self.quote.low
 
 
+class AlreadySegmentEventListener:
+    def __init__(self):
+        self.trading_points: List[CzscPoint] = []
+
+    def receive(self, point: CzscPoint):
+        self.trading_points.append(point)
+
+
 # 缠论中枢
 class MainCenter:
     def __init__(self, start: datetime, end: datetime, top: float, bottom: float):
@@ -76,6 +84,8 @@ class Czsc:
         self.uncertain_segment_points: Dict[QuoteLevel, List[CzscPoint]] = {level: [] for level in required_levels}
         self.already_segment_direct: Dict[QuoteLevel, DirectType] = {level: None for level in required_levels}
         self.already_segment_2nd_extreme: Dict[QuoteLevel, float] = {level: None for level in required_levels}
+        self.already_segment_listener: Dict[QuoteLevel, AlreadySegmentEventListener] \
+            = {level: AlreadySegmentEventListener() for level in  required_levels}
 
         for quote in raw_quotes:
             self.handle_single_quote(quote)
@@ -228,26 +238,31 @@ class Czsc:
                     self.already_segment_2nd_extreme[level] = min(values[:-1])
                     self.append_segment_point(self.uncertain_segment_points[level][i], level)
                     self.uncertain_segment_points[level].clear()
+                    self.already_segment_listener[level].receive(point)
                     break
         # 已存在段结构
         else:
             uncertain_segment_values = [point.value() for point in self.uncertain_segment_points[level]]
+            # 已存在向上
             if self.already_segment_direct[level] is DirectType.UP:
                 # 延续
                 if point.point_type is PointType.TOP and point.value() > self.already_segment_points[level][-1].value():
                     self.already_segment_2nd_extreme[level] = self.already_segment_points[level][-1].value()
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
                     self.uncertain_segment_points[level].clear()
-                # 标准破坏
+                # 破坏 下上下且破二高
                 elif point.point_type is PointType.BOTTOM \
                         and len(uncertain_segment_values) >= AT_LEAST_SEGMENT_DRAWING_NUM - 1 \
-                        and point.value() is min(uncertain_segment_values) \
+                        and point.value() <= uncertain_segment_values[-3] \
                         and point.value() < self.already_segment_2nd_extreme[level]:
                     self.append_segment_point(self.already_segment_points[level][-1], level)
                     self.already_segment_points[level] = self.uncertain_segment_points[level][:]
-                    self.already_segment_2nd_extreme[level] = min(uncertain_segment_values[:-1])
+                    self.already_segment_2nd_extreme[level] = \
+                        min([x for x in uncertain_segment_values if x >= point.value()])
                     self.already_segment_direct[level] = DirectType.DOWN
                     self.uncertain_segment_points[level].clear()
+                    self.already_segment_listener[level].receive(point)
+            # 已存在向下
             else:
                 # 延续
                 if point.point_type is PointType.BOTTOM and point.value() < \
@@ -258,13 +273,15 @@ class Czsc:
                 # 标准破坏
                 elif point.point_type is PointType.TOP \
                         and len(uncertain_segment_values) >= AT_LEAST_SEGMENT_DRAWING_NUM - 1 \
-                        and point.value() is max(uncertain_segment_values) \
+                        and point.value() >= uncertain_segment_values[-3] \
                         and point.value() > self.already_segment_2nd_extreme[level]:
                     self.append_segment_point(self.already_segment_points[level][-1], level)
                     self.already_segment_points[level] = self.uncertain_segment_points[level][:]
-                    self.already_segment_2nd_extreme[level] = max(uncertain_segment_values[:-1])
+                    self.already_segment_2nd_extreme[level] = \
+                        max([x for x in uncertain_segment_values if x <= point.value()])
                     self.already_segment_direct[level] = DirectType.UP
                     self.uncertain_segment_points[level].clear()
+                    self.already_segment_listener[level].receive(point)
 
     def get_segments(self, level: QuoteLevel):
         segments = self.segments[level][:]
