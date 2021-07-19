@@ -54,15 +54,23 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
 
     # trading points
     for level in levels:
-        listener = czsc.already_segment_listener[level]
-        trading_point_chart = EffectScatter()
-        trading_point_chart.add_xaxis([point.quote.timestamp for point in listener.trading_points])
-        trading_point_chart.add_yaxis(level.label + "_trade", [point.value() for point in listener.trading_points],
-                                      symbol=SymbolType.ARROW)
-        candle.overlap(trading_point_chart)
+        listener = czsc.new_segment_listener[level]
+        trading_point_chart_bottom = EffectScatter()
+        trading_point_chart_bottom.add_xaxis([point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.BOTTOM])
+        trading_point_chart_bottom.add_yaxis(level.label + "_trade", [point.value() for point in listener.trading_points if point.point_type is PointType.BOTTOM],
+                                      symbol=SymbolType.TRIANGLE)
+        candle.overlap(trading_point_chart_bottom)
+        trading_point_chart_top = EffectScatter()
+        trading_point_chart_top.add_xaxis(
+            [point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.TOP])
+        trading_point_chart_top.add_yaxis(level.label + "_trade",
+                                             [point.value() for point in listener.trading_points if
+                                              point.point_type is PointType.TOP],
+                                             symbol=SymbolType.ARROW)
+        candle.overlap(trading_point_chart_top)
     # show
     candle.render(name)
 
 
 if __name__ == '__main__':
-    show_czsc('IH8888-30m.html', 'IH8888', [ONE_MINUTE, FIVE_MINUTE])
+    show_czsc('IH8888-30m.html', 'IH8888', [ONE_MINUTE, FIVE_MINUTE, THIRTY_MINUTE])

@@ -35,7 +35,7 @@ class CzscPoint:
         return self.quote.high if self.point_type is PointType.TOP else self.quote.low
 
 
-class AlreadySegmentEventListener:
+class NewSegmentEventListener:
     def __init__(self):
         self.trading_points: List[CzscPoint] = []
 
@@ -84,8 +84,8 @@ class Czsc:
         self.uncertain_segment_points: Dict[QuoteLevel, List[CzscPoint]] = {level: [] for level in required_levels}
         self.already_segment_direct: Dict[QuoteLevel, DirectType] = {level: None for level in required_levels}
         self.already_segment_2nd_extreme: Dict[QuoteLevel, float] = {level: None for level in required_levels}
-        self.already_segment_listener: Dict[QuoteLevel, AlreadySegmentEventListener] \
-            = {level: AlreadySegmentEventListener() for level in  required_levels}
+        self.new_segment_listener: Dict[QuoteLevel, NewSegmentEventListener] \
+            = {level: NewSegmentEventListener() for level in required_levels}
 
         for quote in raw_quotes:
             self.handle_single_quote(quote)
@@ -119,6 +119,7 @@ class Czsc:
                         self.uncertain_drawing_extremum = quote.low
                         self.uncertain_drawing_continues_extremum_count = 1
                         self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.already_drawing_quotes[0]))
+                        self.append_drawing_point(CzscPoint(PointType.TOP, self.already_drawing_quotes[-1]))
                         return
             # 是否向下一笔
             elif self.uncertain_drawing_quotes[-1].high < self.uncertain_drawing_quotes[-2].high:
@@ -141,6 +142,7 @@ class Czsc:
                         self.uncertain_drawing_extremum = quote.high
                         self.uncertain_drawing_continues_extremum_count = 1
                         self.append_drawing_point(CzscPoint(PointType.TOP, self.already_drawing_quotes[0]))
+                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.already_drawing_quotes[-1]))
                         return
 
         # 已存在成型一笔（该笔未确定结束）
@@ -154,12 +156,13 @@ class Czsc:
                     self.uncertain_drawing_quotes.clear()
                     self.uncertain_drawing_extremum = quote.low
                     self.uncertain_drawing_continues_extremum_count = 1
+                    self.update_drawing_point(CzscPoint(PointType.TOP, quote))
                 else:
                     if quote.low < self.uncertain_drawing_extremum:
                         self.uncertain_drawing_extremum = quote.low
                         self.uncertain_drawing_continues_extremum_count += 1
                     if self.uncertain_drawing_continues_extremum_count >= AT_LEAST_DRAWING_QUOTE_NUM:
-                        self.append_drawing_point(CzscPoint(PointType.TOP, self.already_drawing_quotes[-1]))
+                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.uncertain_drawing_quotes[-1]))
                         self.already_drawing_quotes = self.uncertain_drawing_quotes[:]
                         self.already_drawing_quotes_direct = DirectType.DOWN
                         self.uncertain_drawing_quotes.clear()
@@ -172,12 +175,13 @@ class Czsc:
                     self.uncertain_drawing_quotes.clear()
                     self.uncertain_drawing_extremum = quote.high
                     self.uncertain_drawing_continues_extremum_count = 1
+                    self.update_drawing_point(CzscPoint(PointType.BOTTOM, quote))
                 else:
                     if quote.high > self.uncertain_drawing_extremum:
                         self.uncertain_drawing_extremum = quote.high
                         self.uncertain_drawing_continues_extremum_count += 1
                     if self.uncertain_drawing_continues_extremum_count >= AT_LEAST_DRAWING_QUOTE_NUM:
-                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.already_drawing_quotes[-1]))
+                        self.append_drawing_point(CzscPoint(PointType.TOP, self.uncertain_drawing_quotes[-1]))
                         self.already_drawing_quotes = self.uncertain_drawing_quotes[:]
                         self.already_drawing_quotes_direct = DirectType.UP
                         self.uncertain_drawing_quotes.clear()
@@ -200,15 +204,36 @@ class Czsc:
             CzscPoint(PointType.TOP if self.already_drawing_quotes_direct is DirectType.UP else PointType.BOTTOM,
                       self.already_drawing_quotes[-1]).print()
 
+    def backspace_drawing_in_segment(self, level: QuoteLevel):
+        uncertain_length = len(self.uncertain_segment_points[level])
+        if uncertain_length > 0:
+            self.uncertain_segment_points[level] = self.uncertain_segment_points[level][:-1]
+        else:
+            self.already_segment_points[level] = self.already_segment_points[level][:-1]
+
     # 增加新的笔顶点，同时更新该级别段
     def append_drawing_point(self, point: CzscPoint):
         self.drawing_points.append(point)
         self.handle_drawing(point, self.raw_level)
 
+    # 更新之前的笔顶点，并触发该级别段更新
+    def update_drawing_point(self, point: CzscPoint):
+        self.drawing_points[-1] = point
+        self.backspace_drawing_in_segment(self.raw_level)
+        self.handle_drawing(point, self.raw_level)
+
     # 增加新的段顶点，同时以该级别段为别笔更新高一级别
     def append_segment_point(self, point: CzscPoint, level: QuoteLevel):
         self.segments[level].append(point)
+        self.new_segment_listener[level].receive(point)
         if level is not self.required_levels[-1]:
+            self.handle_drawing(point, level.next_level)
+
+    # 更新之前的段顶点，同时以该级别段为别笔更新高一级别
+    def update_segment_point(self, point: CzscPoint, level: QuoteLevel):
+        self.segments[level][-1] = point
+        if level is not self.required_levels[-1]:
+            self.backspace_drawing_in_segment(level.next_level)
             self.handle_drawing(point, level.next_level)
 
     # 处理level级别新确定的一笔，若生成段则迭代更高级别
@@ -228,6 +253,7 @@ class Czsc:
                     self.already_segment_direct[level] = DirectType.UP
                     self.already_segment_2nd_extreme[level] = max(values[:-1])
                     self.append_segment_point(self.uncertain_segment_points[level][i], level)
+                    self.append_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
                     break
                 elif point.point_type is PointType.BOTTOM \
@@ -237,8 +263,8 @@ class Czsc:
                     self.already_segment_direct[level] = DirectType.DOWN
                     self.already_segment_2nd_extreme[level] = min(values[:-1])
                     self.append_segment_point(self.uncertain_segment_points[level][i], level)
+                    self.append_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
-                    self.already_segment_listener[level].receive(point)
                     break
         # 已存在段结构
         else:
@@ -246,42 +272,43 @@ class Czsc:
             # 已存在向上
             if self.already_segment_direct[level] is DirectType.UP:
                 # 延续
-                if point.point_type is PointType.TOP and point.value() > self.already_segment_points[level][-1].value():
-                    self.already_segment_2nd_extreme[level] = self.already_segment_points[level][-1].value()
+                already_max = max([p.value() for p in self.already_segment_points[level]])
+                if point.point_type is PointType.TOP and point.value() > already_max:
+                    self.already_segment_2nd_extreme[level] = already_max
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
+                    self.update_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
-                # 破坏 下上下且破二高
+                # 破坏
                 elif point.point_type is PointType.BOTTOM \
                         and len(uncertain_segment_values) >= AT_LEAST_SEGMENT_DRAWING_NUM - 1 \
                         and point.value() <= uncertain_segment_values[-3] \
                         and point.value() < self.already_segment_2nd_extreme[level]:
-                    self.append_segment_point(self.already_segment_points[level][-1], level)
+                    self.append_segment_point(point, level)
                     self.already_segment_points[level] = self.uncertain_segment_points[level][:]
                     self.already_segment_2nd_extreme[level] = \
                         min([x for x in uncertain_segment_values if x >= point.value()])
                     self.already_segment_direct[level] = DirectType.DOWN
                     self.uncertain_segment_points[level].clear()
-                    self.already_segment_listener[level].receive(point)
             # 已存在向下
             else:
                 # 延续
-                if point.point_type is PointType.BOTTOM and point.value() < \
-                        self.already_segment_points[level][-1].value():
-                    self.already_segment_2nd_extreme[level] = self.already_segment_points[level][-1].value()
+                already_min = min([p.value() for p in self.already_segment_points[level]])
+                if point.point_type is PointType.BOTTOM and point.value() < already_min:
+                    self.already_segment_2nd_extreme[level] = already_min
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
+                    self.update_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
-                # 标准破坏
+                # 破坏
                 elif point.point_type is PointType.TOP \
                         and len(uncertain_segment_values) >= AT_LEAST_SEGMENT_DRAWING_NUM - 1 \
                         and point.value() >= uncertain_segment_values[-3] \
                         and point.value() > self.already_segment_2nd_extreme[level]:
-                    self.append_segment_point(self.already_segment_points[level][-1], level)
+                    self.append_segment_point(point, level)
                     self.already_segment_points[level] = self.uncertain_segment_points[level][:]
                     self.already_segment_2nd_extreme[level] = \
                         max([x for x in uncertain_segment_values if x <= point.value()])
                     self.already_segment_direct[level] = DirectType.UP
                     self.uncertain_segment_points[level].clear()
-                    self.already_segment_listener[level].receive(point)
 
     def get_segments(self, level: QuoteLevel):
         segments = self.segments[level][:]
