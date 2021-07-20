@@ -56,20 +56,36 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
     for level in levels:
         listener = czsc.new_segment_listener[level]
         trading_point_chart_bottom = EffectScatter()
-        trading_point_chart_bottom.add_xaxis([point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.BOTTOM])
-        trading_point_chart_bottom.add_yaxis(level.label + "_trade", [point.value() for point in listener.trading_points if point.point_type is PointType.BOTTOM],
-                                      symbol=SymbolType.TRIANGLE)
+        trading_point_chart_bottom.add_xaxis(
+            [point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.BOTTOM])
+        trading_point_chart_bottom.add_yaxis(level.label + "_trade",
+                                             [point.value() for point in listener.trading_points if
+                                              point.point_type is PointType.BOTTOM],
+                                             symbol=SymbolType.TRIANGLE)
         candle.overlap(trading_point_chart_bottom)
         trading_point_chart_top = EffectScatter()
         trading_point_chart_top.add_xaxis(
             [point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.TOP])
         trading_point_chart_top.add_yaxis(level.label + "_trade",
-                                             [point.value() for point in listener.trading_points if
-                                              point.point_type is PointType.TOP],
-                                             symbol=SymbolType.ARROW)
+                                          [point.value() for point in listener.trading_points if
+                                           point.point_type is PointType.TOP],
+                                          symbol=SymbolType.ARROW)
         candle.overlap(trading_point_chart_top)
+
+    # maincenters
+    for level in levels:
+        maincenters = czsc.get_maincenters(level)
+        for maincenter in maincenters:
+            rectangle = Line()
+            x = [maincenter.start, maincenter.end, maincenter.end, maincenter.start, maincenter.start]
+            y = [maincenter.bottom, maincenter.bottom, maincenter.top, maincenter.top, maincenter.bottom]
+            rectangle.add_xaxis(xaxis_data=x)
+            rectangle.add_yaxis(y_axis=y, series_name="maincenter_" + level.label)
+            candle.overlap(rectangle)
+
     # show
     candle.render(name)
+    rectangle
 
 
 if __name__ == '__main__':
