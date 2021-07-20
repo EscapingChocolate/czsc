@@ -289,7 +289,7 @@ class Czsc:
             if point.point_type is PointType.TOP:
                 maincenter_bottom = max(
                     [point.value() for point in self.already_maincenter_point[level] if
-                    point.point_type is PointType.BOTTOM])
+                     point.point_type is PointType.BOTTOM])
                 if point.value() < maincenter_bottom:
                     return
                 else:
@@ -299,7 +299,7 @@ class Czsc:
             else:
                 maincenter_top = min(
                     [point.value() for point in self.already_maincenter_point[level] if
-                    point.point_type is PointType.TOP])
+                     point.point_type is PointType.TOP])
                 if point.value() > maincenter_top:
                     return
                 else:
@@ -351,7 +351,12 @@ class Czsc:
             # 已存在向上
             if self.already_segment_direct[level] is DirectType.UP:
                 # 延续
-                already_max = max([p.value() for p in self.already_segment_points[level]])
+                i = 0
+                while i < len(self.already_segment_points[level]) - 2:
+                    if self.already_segment_points[level][i].value() <= self.already_segment_points[level][i+2].value():
+                        break
+                    i += 1
+                already_max = max([p.value() for p in self.already_segment_points[level][i:]])
                 if point.point_type is PointType.TOP and point.value() > already_max:
                     self.already_segment_2nd_extreme[level] = already_max
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
@@ -371,7 +376,12 @@ class Czsc:
             # 已存在向下
             else:
                 # 延续
-                already_min = min([p.value() for p in self.already_segment_points[level]])
+                i = 0
+                while i < len(self.already_segment_points[level]) - 2:
+                    if self.already_segment_points[level][i].value() >= self.already_segment_points[level][i + 2].value():
+                        break
+                    i += 1
+                already_min = min([p.value() for p in self.already_segment_points[level][i:]])
                 if point.point_type is PointType.BOTTOM and point.value() < already_min:
                     self.already_segment_2nd_extreme[level] = already_min
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
