@@ -4,6 +4,7 @@ from pyecharts.charts import Line
 from pyecharts.charts import EffectScatter
 from pyecharts.globals import SymbolType
 from quote import *
+from listener import ThirdTradeTrader
 from jq import *
 from structure import *
 from talib import MACD
@@ -12,7 +13,8 @@ from talib import MACD
 def show_czsc(name: str, contract, levels: [QuoteLevel]):
     quotes, raw_df = get_all_quotes(contract, levels[0])
     # macd =  MACD()
-    czsc = Czsc(quotes, levels[0], levels)
+    traders = [ThirdTradeTrader(FIVE_MINUTE), ThirdTradeTrader(THIRTY_MINUTE)]
+    czsc = Czsc(quotes, levels[0], levels, traders, traders, traders)
     # raw quotes candle
     x_data = [quote.timestamp for quote in quotes]
     y_data = [[quote.open, quote.close, quote.low, quote.high] for quote in quotes]
@@ -52,25 +54,27 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
         segment_line.add_yaxis(series_name=level.label, y_axis=y_segment)
         candle.overlap(segment_line)
 
-    # trading points
-    for level in levels:
-        listener = czsc.new_segment_listener[level]
+    for trader in traders:
         trading_point_chart_bottom = EffectScatter()
         trading_point_chart_bottom.add_xaxis(
-            [point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.BOTTOM])
-        trading_point_chart_bottom.add_yaxis(level.label + "_trade",
-                                             [point.value() for point in listener.trading_points if
+            [point.quote.timestamp for point in trader.open_points if point.point_type is PointType.BOTTOM])
+        trading_point_chart_bottom.add_yaxis(trader.level.label + "_trade",
+                                             [point.value() for point in trader.open_points if
                                               point.point_type is PointType.BOTTOM],
                                              symbol=SymbolType.TRIANGLE)
         candle.overlap(trading_point_chart_bottom)
         trading_point_chart_top = EffectScatter()
         trading_point_chart_top.add_xaxis(
-            [point.quote.timestamp for point in listener.trading_points if point.point_type is PointType.TOP])
-        trading_point_chart_top.add_yaxis(level.label + "_trade",
-                                          [point.value() for point in listener.trading_points if
+            [point.quote.timestamp for point in trader.open_points if point.point_type is PointType.TOP])
+        trading_point_chart_top.add_yaxis(trader.level.label + "_trade",
+                                          [point.value() for point in trader.open_points if
                                            point.point_type is PointType.TOP],
                                           symbol=SymbolType.ARROW)
         candle.overlap(trading_point_chart_top)
+        close_point_chart = EffectScatter()
+        close_point_chart.add_xaxis([point.quote.timestamp for point in trader.close_points])
+        close_point_chart.add_yaxis(trader.level.label + "_trade", [point.value() for point in trader.close_points])
+        candle.overlap(close_point_chart)
 
     # maincenters
     for level in levels:
@@ -85,7 +89,6 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
 
     # show
     candle.render(name)
-    rectangle
 
 
 if __name__ == '__main__':

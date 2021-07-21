@@ -1,4 +1,3 @@
-from quote import *
 from jqdatasdk import *
 import configparser
 

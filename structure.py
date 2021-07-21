@@ -1,7 +1,8 @@
 from typing import Dict
-
-from czsc.jq import get_all_quotes
-from czsc.quote import *
+from base import *
+from jq import get_all_quotes
+from quote import *
+from listener import *
 
 # 构成一笔最少新高/新低行情数量
 AT_LEAST_DRAWING_QUOTE_NUM = 5
@@ -11,61 +12,12 @@ AT_LEAST_SEGMENT_DRAWING_NUM = 4
 AT_LEAST_MAINCENTER_SEGMENT_NUM = 4
 
 
-# 缠论笔/段顶点类型：高点/低点
-class PointType(Enum):
-    TOP = 'top'
-    BOTTOM = 'bottom'
-
-
-# 缠论笔/段方向：上/下
-class DirectType(Enum):
-    UP = 'up'
-    DOWN = 'down'
-
-
-# 缠论笔段顶点
-class CzscPoint:
-    def __init__(self, point_type: PointType, quote: Quote):
-        self.point_type = point_type
-        self.quote = quote
-
-    def print(self):
-        print(str(self.quote.timestamp) + ": " + str(self.point_type) + ": " +
-              str(self.quote.high if self.point_type is PointType.TOP else self.quote.low))
-
-    def value(self):
-        return self.quote.high if self.point_type is PointType.TOP else self.quote.low
-
-
-class NewSegmentEventListener:
-    def __init__(self):
-        self.trading_points: List[CzscPoint] = []
-
-    def receive(self, point: CzscPoint):
-        self.trading_points.append(point)
-
-
-# 缠论中枢
-class MainCenter:
-    def __init__(self, start: datetime, end: datetime, top: float, bottom: float):
-        self.start = start
-        self.end = end
-        self.top = top
-        self.bottom = bottom
-
-    def print(self):
-        print("maincenter from " + str(self.start) + " to " + str(self.end) +
-              " top " + str(self.top) + " bottom " + str(self.bottom))
-
-
-class CzscMainCenter:
-    def __init__(self):
-        self.top
-
-
 class Czsc:
 
-    def __init__(self, raw_quotes: List[Quote], raw_level: QuoteLevel, required_levels: List[QuoteLevel]):
+    def __init__(self, raw_quotes: List[Quote], raw_level: QuoteLevel, required_levels: List[QuoteLevel],
+                 quoteListeners: List[QuoteListener] = [],
+                 newSegmentListeners: List[NewSegmentListener] = [],
+                 newMaincenterEventListeners: List[NewMaincenterEventListener] = []):
 
         # 原始行情level，也是构成笔的level
         self.raw_level = raw_level
@@ -90,8 +42,6 @@ class Czsc:
         self.uncertain_segment_points: Dict[QuoteLevel, List[CzscPoint]] = {level: [] for level in required_levels}
         self.already_segment_direct: Dict[QuoteLevel, DirectType] = {level: None for level in required_levels}
         self.already_segment_2nd_extreme: Dict[QuoteLevel, float] = {level: None for level in required_levels}
-        self.new_segment_listener: Dict[QuoteLevel, NewSegmentEventListener] \
-            = {level: NewSegmentEventListener() for level in required_levels}
 
         # 中枢
         self.maincenters: Dict[QuoteLevel, List[MainCenter]] = {level: [] for level in required_levels}
@@ -100,11 +50,18 @@ class Czsc:
         self.already_maincenter_top: Dict[QuoteLevel, float] = {level: None for level in required_levels}
         self.already_maincenter_bottom: Dict[QuoteLevel, float] = {level: None for level in required_levels}
 
+        # listeners
+        self.quoteListeners: List[QuoteListener] = quoteListeners
+        self.newSegmentListeners: List[NewSegmentListener] = newSegmentListeners
+        self.newMaincenterEventListeners: List[NewMaincenterEventListener] = newMaincenterEventListeners
+
         for quote in raw_quotes:
             self.handle_single_quote(quote)
 
     # 处理单k线，触发笔段更新
     def handle_single_quote(self, quote: Quote):
+        for quote_listener in self.quoteListeners:
+            quote_listener.receiveQuote(quote, self.raw_level)
         self.uncertain_drawing_quotes.append(quote)
         # 尚未形成任何笔结构
         if len(self.already_drawing_quotes) == 0:
@@ -245,7 +202,8 @@ class Czsc:
     # 增加新的段顶点，同时以该级别段为别笔更新高一级别
     def append_segment_point(self, point: CzscPoint, level: QuoteLevel):
         self.segments[level].append(point)
-        self.new_segment_listener[level].receive(point)
+        for new_segment_listener in self.newSegmentListeners:
+            new_segment_listener.receiveSegment(point, level)
         self.handle_segment_to_maincenter(point, level)
         if level is not self.required_levels[-1]:
             self.handle_drawing(point, level.next_level)
@@ -253,6 +211,8 @@ class Czsc:
     # 更新之前的段顶点，同时以该级别段为别笔更新高一级别
     def update_segment_point(self, point: CzscPoint, level: QuoteLevel):
         self.segments[level][-1] = point
+        for new_segment_listener in self.newSegmentListeners:
+            new_segment_listener.receiveSegment(point, level)
         self.backspace_segment_in_maincenter(level)
         self.handle_segment_to_maincenter(point, level)
         if level is not self.required_levels[-1]:
@@ -277,6 +237,7 @@ class Czsc:
                 else:
                     self.already_maincenter_point[level] = self.uncertain_maincenter_point[level][:]
                     self.uncertain_maincenter_point[level].clear()
+                    self.info_maincenter(level, self.already_maincenter_point[level][:])
         else:
             # 新中枢
             if len(self.uncertain_maincenter_point[level]) == 2:
@@ -284,6 +245,7 @@ class Czsc:
                 self.already_maincenter_point[level] = self.already_maincenter_point[level][-2:]
                 self.already_maincenter_point[level].extend(self.uncertain_maincenter_point[level])
                 self.uncertain_maincenter_point[level].clear()
+                self.info_maincenter(level, self.already_maincenter_point[level][:])
                 return
             # 向上一笔
             if point.point_type is PointType.TOP:
@@ -294,6 +256,7 @@ class Czsc:
                     return
                 else:
                     self.already_maincenter_point[level].extend(self.uncertain_maincenter_point[level])
+                    self.info_maincenter(level, self.already_maincenter_point[level][:])
                     self.uncertain_maincenter_point[level].clear()
             # 向下一笔
             else:
@@ -304,6 +267,7 @@ class Czsc:
                     return
                 else:
                     self.already_maincenter_point[level].extend(self.uncertain_maincenter_point[level])
+                    self.info_maincenter(level, self.already_maincenter_point[level][:])
                     self.uncertain_maincenter_point[level].clear()
 
     def build_maincenter_from_already(self, level: QuoteLevel):
@@ -314,6 +278,10 @@ class Czsc:
             min([point.value() for point in already if point.point_type is PointType.TOP]),
             max([point.value() for point in already if point.point_type is PointType.BOTTOM])
         )
+
+    def info_maincenter(self, level: QuoteLevel, maincenter_points: List[CzscPoint]):
+        for new_maincenter_litsener in self.newMaincenterEventListeners:
+            new_maincenter_litsener.receiveMaincenter(maincenter_points, level)
 
     # 处理level级别新确定的一笔，若生成段则迭代更高级别
     def handle_drawing(self, point: CzscPoint, level: QuoteLevel):
@@ -353,7 +321,8 @@ class Czsc:
                 # 延续
                 i = 0
                 while i < len(self.already_segment_points[level]) - 2:
-                    if self.already_segment_points[level][i].value() <= self.already_segment_points[level][i+2].value():
+                    if self.already_segment_points[level][i].value() <= self.already_segment_points[level][
+                        i + 2].value():
                         break
                     i += 1
                 already_max = max([p.value() for p in self.already_segment_points[level][i:]])
@@ -378,7 +347,8 @@ class Czsc:
                 # 延续
                 i = 0
                 while i < len(self.already_segment_points[level]) - 2:
-                    if self.already_segment_points[level][i].value() >= self.already_segment_points[level][i + 2].value():
+                    if self.already_segment_points[level][i].value() >= self.already_segment_points[level][
+                        i + 2].value():
                         break
                     i += 1
                 already_min = min([p.value() for p in self.already_segment_points[level][i:]])
