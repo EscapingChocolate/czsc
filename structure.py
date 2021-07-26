@@ -235,9 +235,9 @@ class Czsc:
                     return
                 # 三段存在重合
                 else:
-                    self.already_maincenter_point[level] = self.uncertain_maincenter_point[level][:]
+                    self.already_maincenter_point[level] = self.uncertain_maincenter_point[level][-4:]
                     self.uncertain_maincenter_point[level].clear()
-                    self.info_maincenter(level, self.already_maincenter_point[level][:])
+                    self.info_maincenter(level, self.already_maincenter_point[level][-4:])
         else:
             # 新中枢
             if len(self.uncertain_maincenter_point[level]) == 2:
@@ -320,14 +320,17 @@ class Czsc:
             if self.already_segment_direct[level] is DirectType.UP:
                 # 延续
                 i = 0
+                already_max = None
                 while i < len(self.already_segment_points[level]) - 2:
-                    if self.already_segment_points[level][i].value() <= self.already_segment_points[level][
-                        i + 2].value():
+                    if self.already_segment_points[level][i].value() <= \
+                            self.already_segment_points[level][i + 2].value() and \
+                            self.already_segment_points[level][i].point_type is PointType.TOP:
+                        already_max = max([p.value() for p in self.already_segment_points[level][i:]])
                         break
                     i += 1
-                already_max = max([p.value() for p in self.already_segment_points[level][i:]])
-                if point.point_type is PointType.TOP and point.value() > already_max:
-                    self.already_segment_2nd_extreme[level] = already_max
+                if point.point_type is PointType.TOP and (already_max is None or point.value() > already_max):
+                    self.already_segment_2nd_extreme[level] = already_max if already_max is not None \
+                        else self.already_segment_points[level][-2].value()
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
                     self.update_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
@@ -346,14 +349,18 @@ class Czsc:
             else:
                 # 延续
                 i = 0
+                already_min = None
                 while i < len(self.already_segment_points[level]) - 2:
-                    if self.already_segment_points[level][i].value() >= self.already_segment_points[level][
-                        i + 2].value():
+                    if self.already_segment_points[level][i].value() >= \
+                            self.already_segment_points[level][i + 2].value() and \
+                            self.already_segment_points[level][i].point_type is PointType.BOTTOM:
+                        already_min = min([p.value() for p in self.already_segment_points[level][i:]])
                         break
                     i += 1
-                already_min = min([p.value() for p in self.already_segment_points[level][i:]])
-                if point.point_type is PointType.BOTTOM and point.value() < already_min:
-                    self.already_segment_2nd_extreme[level] = already_min
+
+                if point.point_type is PointType.BOTTOM and (already_min is None or point.value() < already_min):
+                    self.already_segment_2nd_extreme[level] = already_min if already_min is not None \
+                        else self.already_segment_points[level][-2].value()
                     self.already_segment_points[level].extend(self.uncertain_segment_points[level])
                     self.update_segment_point(point, level)
                     self.uncertain_segment_points[level].clear()
