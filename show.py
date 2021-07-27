@@ -92,4 +92,4 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
 
 
 if __name__ == '__main__':
-    show_czsc('AP8888-30m.html', 'AP8888', [ONE_MINUTE, FIVE_MINUTE, THIRTY_MINUTE])
+    show_czsc('RB8888-30m.html', 'RB8888', [ONE_MINUTE, FIVE_MINUTE, THIRTY_MINUTE])

@@ -57,9 +57,8 @@ class ThirdTradeTrader(QuoteListener, NewSegmentListener, NewMaincenterEventList
     def receiveMaincenter(self, maincenter_points: List[CzscPoint], level: QuoteLevel):
         maincenter = build_maincenter_from_points(maincenter_points)
         if level is self.level:
-            if self.trade_status is TradeStatus.OPEN:
-                return
-            if self.last_maincenter is not None and self.last_maincenter.start is not maincenter.start:
+            if self.trade_status is TradeStatus.CLOSED and self.last_maincenter is not None and \
+                    self.last_maincenter.start is not maincenter.start:
                 self.open_points.append(maincenter_points[-1])
                 self.trade_status = TradeStatus.OPEN
                 self.trade_direct = TradeDirect.LONG \
