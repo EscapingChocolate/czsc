@@ -1,10 +1,11 @@
-from datetime import datetime
-from enum import Enum
-from typing import List
 from abc import abstractmethod
+from datetime import datetime
 
-# 行情级别
+
 class QuoteLevel:
+    """
+    行情级别
+    """
 
     def __init__(self, label, next_level):
         self.label = label
@@ -19,8 +20,11 @@ FIVE_MINUTE = QuoteLevel('5m', THIRTY_MINUTE)
 ONE_MINUTE = QuoteLevel('1m', FIVE_MINUTE)
 
 
-# 单k线行情，包含价格成交量及时间戳
 class Quote:
+    """
+    单k线行情，包含价格成交量及时间戳
+    """
+
     def __init__(self,
                  open_price: float,
                  close_price: float,
@@ -40,4 +44,10 @@ class QuoteEventListener:
 
     @abstractmethod
     def receiveRawQuote(self, quote: Quote, level: QuoteLevel):
+        """
+        k线行情事件listener
+        :param quote: k线
+        :param level: 行情级别
+        :return:
+        """
         pass

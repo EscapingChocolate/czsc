@@ -15,22 +15,32 @@ class Drawing:
 
 class DrawingEventListener:
 
-    # 接收新一笔成立事件
-    # 笔终点可能会通过updateLatestDrawingEndPoint更新终点，起点和方向不会变
-    # 保证新一笔起点为上一笔终点
     @abstractmethod
     def receiveNewDrawing(self, drawing: Drawing):
+        """
+        接收新一笔成立事件
+        笔终点可能会通过updateLatestDrawingEndPoint更新终点，起点和方向不会变
+        保证新一笔起点为上一笔终点
+        :param drawing: 笔对象
+        :return:
+        """
+
         pass
 
-    # 更新最后通过receiveNewDrawing接收笔的终点
     @abstractmethod
     def updateLatestDrawingEndPoint(self, drawing: Drawing):
+        """
+        更新最后通过receiveNewDrawing接收笔的终点
+        :param drawing: 笔对象
+        :return:
+        """
         pass
 
 
 class DrawingBuilder(QuoteEventListener):
 
     def __init__(self, raw_level: QuoteLevel, listeners: List[DrawingEventListener] = list()):
+
         self.raw_level = raw_level
         self.drawing_points: List[CzscPoint] = []
 
