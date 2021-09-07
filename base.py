@@ -10,7 +10,7 @@ class PointType(Enum):
     BOTTOM = 'bottom'
 
 
-# 缠论笔/段方向：上/下
+# 缠论笔/段/走势方向：上/下
 class DirectType(Enum):
     UP = 'up'
     DOWN = 'down'
@@ -50,3 +50,4 @@ def build_maincenter_from_points(points: List[CzscPoint]):
         min([point.value() for point in points if point.point_type is PointType.TOP]),
         max([point.value() for point in points if point.point_type is PointType.BOTTOM])
     )
+

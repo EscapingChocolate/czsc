@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import List
-
+from abc import abstractmethod
 
 # 行情级别
 class QuoteLevel:
@@ -34,3 +34,10 @@ class Quote:
         self.low = low_price
         self.vol = volume
         self.timestamp = timestamp
+
+
+class QuoteEventListener:
+
+    @abstractmethod
+    def receiveRawQuote(self, quote: Quote, level: QuoteLevel):
+        pass
