@@ -1,32 +1,36 @@
-from abc import abstractmethod
+from typing import List
 
+from abstractTrend import AbstractTrend
+from abstractTrend import AbstractTrendListener
 from base import CzscPoint
+from base import DirectType
+from maincenter import MainCenter
 
 
-# 走势定义类，记录从start至end的走势
-class Trend:
+class Trend(AbstractTrend):
+    """
+    走势类型
+    走势包含趋势和盘整，均有方向，包含大于一个中枢为趋势
+    """
 
-    def __init__(self, start: CzscPoint, end: CzscPoint):
+    def __init__(self, start: CzscPoint, end: CzscPoint, direct: DirectType, main_centers: List[MainCenter]):
         self.start = start
         self.end = end
+        self.direct = direct
 
+    def start(self) -> CzscPoint:
+        return self.start
 
-# 走势事件监听器
-class TrendListener:
+    def end(self) -> CzscPoint:
+        return self.end
 
-    # 接收新趋势成立事件
-    @abstractmethod
-    def receiveNewTrend(self, trend: Trend):
-        pass
-
-    # 更新上次成立趋势终点
-    @abstractmethod
-    def updateLatestTrend(self, point: CzscPoint):
-        pass
+    def direct(self) -> DirectType:
+        return self.direct
 
 
 class TrendBuilder:
 
-    def __init__(self):
-        # todo
-        return
+    def __init__(self, listeners: List[AbstractTrendListener]):
+        self.listeners = listeners
+
+    # todo

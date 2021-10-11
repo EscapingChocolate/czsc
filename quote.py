@@ -43,7 +43,7 @@ class Quote:
 class QuoteEventListener:
 
     @abstractmethod
-    def receiveRawQuote(self, quote: Quote, level: QuoteLevel):
+    def receive_raw_quote(self, quote: Quote, level: QuoteLevel):
         """
         k线行情事件listener
         :param quote: k线

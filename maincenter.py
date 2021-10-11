@@ -1,14 +1,21 @@
-from trend import TrendListener
+from abstractTrend import AbstractTrendListener
 
 
+class MainCenter:
 
-class MainCenterBuilder(TrendListener):
+    def __init__(self, start: CzscPoint, end: CzscPoint, direct: DirectType):
+        self.start = start
+        self.end = end
+        self.direct = direct
+
+
+class MainCenterBuilder(AbstractTrendListener):
 
     def __init__(self):
         return
 
-    def receiveNewTrend(self, trend: Trend):
+    def receive_new_trend(self, trend: Trend):
         return
 
-    def updateLatestTrend(self, point: CzscPoint):
+    def update_latest_trend(self, point: CzscPoint):
         return

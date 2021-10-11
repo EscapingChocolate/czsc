@@ -5,8 +5,15 @@ from base import CzscPoint
 from base import DirectType
 from quote import QuoteEventListener, Quote, QuoteLevel
 
+# 构成一笔最少新高/新低行情数量
+AT_LEAST_DRAWING_QUOTE_NUM = 5
+
 
 class Drawing:
+    """
+    缠论笔
+    """
+
     def __init__(self, start: CzscPoint, end: CzscPoint):
         self.start = start
         self.end = end
@@ -16,28 +23,33 @@ class Drawing:
 class DrawingEventListener:
 
     @abstractmethod
-    def receiveNewDrawing(self, drawing: Drawing):
+    def receive_new_drawing(self, point: CzscPoint):
         """
-        接收新一笔成立事件
-        笔终点可能会通过updateLatestDrawingEndPoint更新终点，起点和方向不会变
+        接收新成立笔顶点事件
+        笔顶点可能会通过updateLatestDrawingEndPoint更新
         保证新一笔起点为上一笔终点
-        :param drawing: 笔对象
+        :param point: 笔顶点
         :return:
         """
 
         pass
 
     @abstractmethod
-    def updateLatestDrawingEndPoint(self, drawing: Drawing):
+    def update_latest_drawing_end_point(self, point: CzscPoint):
         """
-        更新最后通过receiveNewDrawing接收笔的终点
-        :param drawing: 笔对象
+        更新最后通过receiveNewDrawing接收笔顶点
+        :param point: 笔顶点
         :return:
         """
         pass
 
 
 class DrawingBuilder(QuoteEventListener):
+    """
+    缠论笔构造器
+    按照缠论原文，需要先找分型然后处理包含关系，再构成笔，较为复杂
+    理论上，以上步骤和5根k线新高/低逻辑等价，遂使用此方式构造笔
+    """
 
     def __init__(self, raw_level: QuoteLevel, listeners: List[DrawingEventListener] = list()):
 
@@ -58,7 +70,13 @@ class DrawingBuilder(QuoteEventListener):
         # listeners
         self.listeners: List[DrawingEventListener] = listeners
 
-    def receiveRawQuote(self, quote: Quote, level: QuoteLevel):
+    def receive_raw_quote(self, quote: Quote, level: QuoteLevel):
+        """
+        接收行情，生成笔并通知DrawingEventListener
+        :param quote:
+        :param level:
+        :return:
+        """
         if level is not self.raw_level:
             raise BaseException("invalid quote level {} for rawLevel {}", level, self.raw_level)
         self.uncertain_drawing_quotes.append(quote)
@@ -159,12 +177,10 @@ class DrawingBuilder(QuoteEventListener):
 
     def append_drawing_point(self, point: CzscPoint):
         self.drawing_points.append(point)
-        if len(self.drawing_points) >= 2:
-            for listener in self.listeners:
-                listener.receiveNewDrawing(Drawing(self.drawing_points[-2], self.drawing_points[-1]))
+        for listener in self.listeners:
+            listener.receive_new_drawing(point)
 
     def update_drawing_point(self, point: CzscPoint):
         self.drawing_points[-1] = point
-        if len(self.drawing_points) >= 2:
-            for listener in self.listeners:
-                listener.updateLatestDrawingEndPoint(Drawing(self.drawing_points[-2], self.drawing_points[-1]))
+        for listener in self.listeners:
+            listener.update_latest_drawing_end_point(point)
