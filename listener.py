@@ -58,7 +58,7 @@ class ThirdTradeTrader(QuoteListener, NewSegmentListener, NewMaincenterEventList
         maincenter = build_maincenter_from_points(maincenter_points)
         if level is self.level:
             if self.trade_status is TradeStatus.CLOSED and self.last_maincenter is not None and \
-                    self.last_maincenter.start is not maincenter.start:
+                    self.last_maincenter.get_start is not maincenter.get_start:
                 self.open_points.append(maincenter_points[-1])
                 self.trade_status = TradeStatus.OPEN
                 self.trade_direct = TradeDirect.LONG \
@@ -68,7 +68,7 @@ class ThirdTradeTrader(QuoteListener, NewSegmentListener, NewMaincenterEventList
                 self.previous_lower_maincenter = None
             self.last_maincenter = maincenter
         elif level.next_level is self.level:
-            if self.current_lower_maincenter is not None and self.current_lower_maincenter.start is not maincenter.start:
+            if self.current_lower_maincenter is not None and self.current_lower_maincenter.get_start is not maincenter.get_start:
                 self.previous_lower_maincenter = self.current_lower_maincenter
             self.current_lower_maincenter = maincenter;
             if self.trade_status is TradeStatus.CLOSED:

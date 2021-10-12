@@ -2,30 +2,21 @@ from typing import List
 
 from abstractTrend import AbstractTrend
 from abstractTrend import AbstractTrendListener
+from abstractTrend import SimpleTrendImpl
 from base import CzscPoint
 from base import DirectType
 from maincenter import MainCenter
 
 
-class Trend(AbstractTrend):
+class Trend(SimpleTrendImpl):
     """
     走势类型
     走势包含趋势和盘整，均有方向，包含大于一个中枢为趋势
     """
 
     def __init__(self, start: CzscPoint, end: CzscPoint, direct: DirectType, main_centers: List[MainCenter]):
-        self.start = start
-        self.end = end
-        self.direct = direct
-
-    def start(self) -> CzscPoint:
-        return self.start
-
-    def end(self) -> CzscPoint:
-        return self.end
-
-    def direct(self) -> DirectType:
-        return self.direct
+        super().__init__(start, end, direct)
+        self.main_centers: List[MainCenter] = main_centers
 
 
 class TrendBuilder:
@@ -34,3 +25,8 @@ class TrendBuilder:
         self.listeners = listeners
 
     # todo
+
+
+if __name__ == '__main__':
+    t = Trend(CzscPoint(None,None), CzscPoint(None,None),DirectType.DOWN,[])
+    print()

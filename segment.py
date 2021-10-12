@@ -1,12 +1,13 @@
 from typing import List
 
-from abstractTrend import AbstractTrend, AbstractTrendListener
+from abstractTrend import AbstractTrendListener, SimpleTrendImpl
 from base import CzscPoint
+from base import DirectType
 from drawing import DrawingEventListener
 from quote import QuoteLevel
 
 
-class Segment(AbstractTrend):
+class Segment(SimpleTrendImpl):
     """
     缠论段
     缠论由笔构成段，段作为最低级别行情的次级别走势类型，构成最低级别中枢
@@ -14,7 +15,7 @@ class Segment(AbstractTrend):
     """
 
     def __init__(self, start: CzscPoint, end: CzscPoint):
-        super(Segment, self).__init__(start, end)
+        super().__init__(start, end, DirectType.UP if start.value() < end.value() else DirectType.DOWN)
 
 
 class SegmentBuilder(DrawingEventListener):

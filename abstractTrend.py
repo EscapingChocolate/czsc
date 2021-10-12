@@ -1,28 +1,48 @@
+from abc import ABCMeta
 from abc import abstractmethod
 
 from base import CzscPoint
 from base import DirectType
 
 
-class AbstractTrend:
+class AbstractTrend(metaclass=ABCMeta):
     """
     走势抽象
     低级别走势重叠构成中枢，中枢又生成当级别走势
     抽象无中枢引用的趋势，防止循环依赖
-    同时段也继承该抽象，实现最低级别次级别走势
     """
 
     @abstractmethod
-    def start(self) -> CzscPoint:
+    def get_start(self) -> CzscPoint:
         pass
 
     @abstractmethod
-    def end(self) -> CzscPoint:
+    def get_end(self) -> CzscPoint:
         pass
 
     @abstractmethod
-    def direct(self) -> DirectType:
+    def get_direct(self) -> DirectType:
         pass
+
+
+class SimpleTrendImpl(AbstractTrend):
+    """
+    抽象走势简单实现
+    """
+
+    def __init__(self, start: CzscPoint, end: CzscPoint, direct: DirectType):
+        self.start = start
+        self.end = end
+        self.direct = direct
+
+    def get_start(self) -> CzscPoint:
+        return self.start
+
+    def get_end(self) -> CzscPoint:
+        return self.end
+
+    def get_direct(self) -> DirectType:
+        return self.direct
 
 
 class AbstractTrendListener:

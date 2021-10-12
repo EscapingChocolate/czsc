@@ -81,7 +81,7 @@ def show_czsc(name: str, contract, levels: [QuoteLevel]):
         maincenters = czsc.get_maincenters(level)
         for maincenter in maincenters:
             rectangle = Line()
-            x = [maincenter.start, maincenter.end, maincenter.end, maincenter.start, maincenter.start]
+            x = [maincenter.get_start, maincenter.get_end, maincenter.get_end, maincenter.get_start, maincenter.get_start]
             y = [maincenter.bottom, maincenter.bottom, maincenter.top, maincenter.top, maincenter.bottom]
             rectangle.add_xaxis(xaxis_data=x)
             rectangle.add_yaxis(y_axis=y, series_name="maincenter_" + level.label)
