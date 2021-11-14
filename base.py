@@ -4,16 +4,22 @@ from quote import QuoteLevel
 from datetime import datetime
 from typing import List
 
+
 # 缠论笔/段顶点类型：高点/低点
 class PointType(Enum):
     TOP = 'top'
     BOTTOM = 'bottom'
 
+    def reverse(self):
+        return PointType.TOP if self is PointType.BOTTOM else PointType.TOP
 
 # 缠论笔/段/走势方向：上/下
 class DirectType(Enum):
     UP = 'up'
     DOWN = 'down'
+
+    def reverse(self):
+        return DirectType.UP if self is DirectType.DOWN else DirectType.DOWN
 
 
 # 缠论笔段顶点
@@ -28,6 +34,12 @@ class CzscPoint:
 
     def value(self):
         return self.quote.high if self.point_type is PointType.TOP else self.quote.low
+
+    def inner(self, point: CzscPoint) -> bool:
+        return point.value() < self.value() if self.point_type is PointType.TOP else point.value() > self.value()
+
+    def outer(self, point: CzscPoint) -> bool:
+        return not self.inner(point)
 
 
 # 缠论中枢
@@ -51,3 +63,7 @@ def build_maincenter_from_points(points: List[CzscPoint]):
         max([point.value() for point in points if point.point_type is PointType.BOTTOM])
     )
 
+
+if __name__ == '__main__':
+    print(DirectType.DOWN.reverse())
+    print(DirectType.UP.reverse())
