@@ -22,6 +22,19 @@ class CzscPoint:
     def outer(self, point) -> bool:
         return not self.inner(point)
 
+    def continuous(self, point, direct: DirectType) -> bool:
+        return self.value() < point.value() if direct is DirectType.UP else self.value() > point.value()
+
+    def break_through(self, point):
+        """
+        跌穿或涨破，self和point要求相反类型
+        :param point:
+        :return:
+        """
+        if self.point_type.reverse() is not point.point_type:
+            raise BaseException("invalid usage of CzscPoint.break_through")
+        return point.value() < self.value() if self.point_type is PointType.TOP else point.value() > self.value()
+
 
 def on_direct_point(quote: Quote, direct: DirectType) -> CzscPoint:
     return CzscPoint(PointType.TOP if direct is DirectType.UP else PointType.BOTTOM, quote)

@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from abc import abstractmethod
 
-from base import CzscPoint
+from point import CzscPoint
 from base import DirectType
 
 

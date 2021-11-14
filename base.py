@@ -9,7 +9,7 @@ class PointType(Enum):
     BOTTOM = 'bottom'
 
     def reverse(self):
-        return PointType.TOP if self is PointType.BOTTOM else PointType.TOP
+        return PointType.TOP if self is PointType.BOTTOM else PointType.BOTTOM
 
 
 # 缠论笔/段/走势方向：上/下
@@ -19,6 +19,9 @@ class DirectType(Enum):
 
     def reverse(self):
         return DirectType.UP if self is DirectType.DOWN else DirectType.DOWN
+
+    def associated_point_type(self):
+        return PointType.TOP if self is DirectType.UP else PointType.BOTTOM
 
 
 # # 缠论中枢
