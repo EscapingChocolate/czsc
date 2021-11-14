@@ -8,6 +8,27 @@ from listener import ThirdTradeTrader
 from jq import *
 from structure import *
 from talib import MACD
+from drawing import DrawingEventListener
+
+def show_drawings(name: str, contract, level: QuoteLevel):
+    quotes, _ = get_all_quotes(contract, level)
+    x_data = [quote.timestamp for quote in quotes]
+    y_data = [[quote.open, quote.close, quote.low, quote.high] for quote in quotes]
+    candle = Candlestick(init_opts=opts.InitOpts(width="1300px", height="600px"))
+    candle.add_xaxis(xaxis_data=x_data)
+    candle.add_yaxis(series_name="raw_quotes_" + levels[0].label, y_axis=y_data)
+    candle.set_series_opts()
+    candle.set_global_opts(
+        xaxis_opts=opts.AxisOpts(is_scale=True),
+        yaxis_opts=opts.AxisOpts(
+            is_scale=True,
+            splitarea_opts=opts.SplitAreaOpts(
+                is_show=True, areastyle_opts=opts.AreaStyleOpts(opacity=1)
+            ),
+        ),
+        datazoom_opts=[opts.DataZoomOpts(type_="inside")],
+        title_opts=opts.TitleOpts(title="Kline-ItemStyle"),
+    )
 
 
 def show_czsc(name: str, contract, levels: [QuoteLevel]):

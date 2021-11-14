@@ -1,9 +1,12 @@
 from abc import abstractmethod
 from typing import List
 
-from base import CzscPoint
+from point import CzscPoint
+from point import on_direct_point
 from base import DirectType
+from base import PointType
 from quote import QuoteEventListener, Quote, QuoteLevel
+from jq import get_all_quotes
 
 # 构成一笔最少新高/新低行情数量
 AT_LEAST_DRAWING_QUOTE_NUM = 5
@@ -44,6 +47,18 @@ class DrawingEventListener:
         pass
 
 
+class DrawingStorage(DrawingEventListener):
+
+    def __init__(self):
+        self.drawings: List[CzscPoint] = []
+
+    def receive_new_drawing(self, point: CzscPoint):
+        self.drawings.append(point)
+
+    def update_latest_drawing_end_point(self, point: CzscPoint):
+        self.drawings[-1] = point
+
+
 class DrawingBuilder(QuoteEventListener):
     """
     缠论笔构造器
@@ -62,8 +77,8 @@ class DrawingBuilder(QuoteEventListener):
 
         # 没有延续already_drawing_quotes方向新高/新低的行情，但尚未构成一笔
         self.uncertain_drawing_quotes: List[Quote] = []
-        # already_drawing_quotes后反向的极值
-        self.uncertain_drawing_extremum = None
+        # already_drawing_quotes后反向的极值行情
+        self.uncertain_drawing_extremum: Quote = None
         # already_drawing_quotes后反向极值创新数
         self.uncertain_drawing_continues_extremum_count = None
 
@@ -85,95 +100,57 @@ class DrawingBuilder(QuoteEventListener):
             uncertain_len = len(self.uncertain_drawing_quotes)
             if uncertain_len < AT_LEAST_DRAWING_QUOTE_NUM:
                 return
-            # 是否向上一笔
-            if self.uncertain_drawing_quotes[-1].high > self.uncertain_drawing_quotes[-2].high:
-                for i in range(0, uncertain_len - AT_LEAST_DRAWING_QUOTE_NUM + 1):
-                    new_high_count = 0
-                    cur = i
-                    while cur < uncertain_len - 1:
-                        n = cur + 1
-                        while n < uncertain_len and \
-                                self.uncertain_drawing_quotes[n].high <= self.uncertain_drawing_quotes[cur].high:
-                            n += 1
-                        if not n < uncertain_len:
-                            break
-                        new_high_count += 1
-                        cur = n
-                    if new_high_count >= AT_LEAST_DRAWING_QUOTE_NUM - 1:
-                        self.already_drawing_quotes = self.uncertain_drawing_quotes[i:]
-                        self.uncertain_drawing_quotes.clear()
-                        self.already_drawing_quotes_direct = DirectType.UP
-                        self.uncertain_drawing_extremum = quote.low
-                        self.uncertain_drawing_continues_extremum_count = 1
-                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.already_drawing_quotes[0]))
-                        self.append_drawing_point(CzscPoint(PointType.TOP, self.already_drawing_quotes[-1]))
-                        return
-            # 是否向下一笔
-            elif self.uncertain_drawing_quotes[-1].high < self.uncertain_drawing_quotes[-2].high:
-                for i in range(0, uncertain_len - AT_LEAST_DRAWING_QUOTE_NUM + 1):
-                    new_low_count = 0
-                    cur = i
-                    while cur < uncertain_len - 1:
-                        n = cur + 1
-                        while n < uncertain_len and \
-                                self.uncertain_drawing_quotes[n].low >= self.uncertain_drawing_quotes[cur].low:
-                            n += 1
-                        if not n < uncertain_len:
-                            break
-                        new_low_count += 1
-                        cur = n
-                    if new_low_count >= AT_LEAST_DRAWING_QUOTE_NUM - 1:
-                        self.already_drawing_quotes = self.uncertain_drawing_quotes[i:]
-                        self.uncertain_drawing_quotes.clear()
-                        self.already_drawing_quotes_direct = DirectType.DOWN
-                        self.uncertain_drawing_extremum = quote.high
-                        self.uncertain_drawing_continues_extremum_count = 1
-                        self.append_drawing_point(CzscPoint(PointType.TOP, self.already_drawing_quotes[0]))
-                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.already_drawing_quotes[-1]))
-                        return
+            assume_direct = DirectType.UP if self.uncertain_drawing_quotes[-1].high > self.uncertain_drawing_quotes[
+                -2].high else DirectType.DOWN
+            for i in range(0, uncertain_len - AT_LEAST_DRAWING_QUOTE_NUM + 1):
+                direct_continous_count = 0
+                cur = i
+                while cur < uncertain_len - 1:
+                    n = cur + 1
+                    while n < uncertain_len and not self.uncertain_drawing_quotes[cur].continuous(
+                            self.uncertain_drawing_quotes[n], assume_direct):
+                        n += 1
+                    if n >= uncertain_len:
+                        break
+                    direct_continous_count += 1
+                    cur = n
+                if direct_continous_count >= AT_LEAST_DRAWING_QUOTE_NUM - 1:
+                    self.already_drawing_quotes = self.uncertain_drawing_quotes[i:]
+                    self.uncertain_drawing_quotes.clear()
+                    self.already_drawing_quotes_direct = assume_direct
+                    self.uncertain_drawing_extremum = quote
+                    self.uncertain_drawing_continues_extremum_count = 1
+                    self.append_drawing_point(
+                        CzscPoint(PointType.BOTTOM if assume_direct is DirectType.UP else PointType.TOP,
+                                  self.already_drawing_quotes[0]))
+                    self.append_drawing_point(
+                        CzscPoint(PointType.TOP if assume_direct is DirectType.UP else PointType.BOTTOM,
+                                  self.already_drawing_quotes[-1]))
+                    return
 
         # 已存在成型一笔（该笔未确定结束）
         # 若延续已存在一笔则将uncertain归入already
         # 否则记录反向新创极值及次数，次数超过AT_LEAST_DRAWING_QUOTE_NUM则反向一笔形成
         # 标志already结束，记录already尾端点，uncertain变为already
         else:
-            if self.already_drawing_quotes_direct is DirectType.UP:
-                if quote.high > self.already_drawing_quotes[-1].high:
-                    self.already_drawing_quotes.extend(self.uncertain_drawing_quotes)
+            if self.already_drawing_quotes[-1].continuous(quote, self.already_drawing_quotes_direct):
+                self.already_drawing_quotes.extend(self.uncertain_drawing_quotes)
+                self.uncertain_drawing_quotes.clear()
+                self.uncertain_drawing_extremum = quote
+                self.uncertain_drawing_continues_extremum_count = 1
+                self.update_drawing_point(on_direct_point(quote, self.already_drawing_quotes_direct))
+            else:
+                if self.uncertain_drawing_extremum.continuous(quote, self.already_drawing_quotes_direct.reverse()):
+                    self.uncertain_drawing_extremum = quote
+                    self.uncertain_drawing_continues_extremum_count += 1
+                if self.uncertain_drawing_continues_extremum_count >= AT_LEAST_DRAWING_QUOTE_NUM:
+                    self.append_drawing_point(on_direct_point(self.uncertain_drawing_quotes[-1],
+                                                              self.already_drawing_quotes_direct.reverse()))
+                    self.already_drawing_quotes = self.uncertain_drawing_quotes[:]
+                    self.already_drawing_quotes_direct = self.already_drawing_quotes_direct.reverse()
                     self.uncertain_drawing_quotes.clear()
-                    self.uncertain_drawing_extremum = quote.low
+                    self.uncertain_drawing_extremum = quote
                     self.uncertain_drawing_continues_extremum_count = 1
-                    self.update_drawing_point(CzscPoint(PointType.TOP, quote))
-                else:
-                    if quote.low < self.uncertain_drawing_extremum:
-                        self.uncertain_drawing_extremum = quote.low
-                        self.uncertain_drawing_continues_extremum_count += 1
-                    if self.uncertain_drawing_continues_extremum_count >= AT_LEAST_DRAWING_QUOTE_NUM:
-                        self.append_drawing_point(CzscPoint(PointType.BOTTOM, self.uncertain_drawing_quotes[-1]))
-                        self.already_drawing_quotes = self.uncertain_drawing_quotes[:]
-                        self.already_drawing_quotes_direct = DirectType.DOWN
-                        self.uncertain_drawing_quotes.clear()
-                        self.uncertain_drawing_extremum = quote.high
-                        self.uncertain_drawing_continues_extremum_count = 1
-
-            elif self.already_drawing_quotes_direct is DirectType.DOWN:
-                if quote.low < self.already_drawing_quotes[-1].low:
-                    self.already_drawing_quotes.extend(self.uncertain_drawing_quotes)
-                    self.uncertain_drawing_quotes.clear()
-                    self.uncertain_drawing_extremum = quote.high
-                    self.uncertain_drawing_continues_extremum_count = 1
-                    self.update_drawing_point(CzscPoint(PointType.BOTTOM, quote))
-                else:
-                    if quote.high > self.uncertain_drawing_extremum:
-                        self.uncertain_drawing_extremum = quote.high
-                        self.uncertain_drawing_continues_extremum_count += 1
-                    if self.uncertain_drawing_continues_extremum_count >= AT_LEAST_DRAWING_QUOTE_NUM:
-                        self.append_drawing_point(CzscPoint(PointType.TOP, self.uncertain_drawing_quotes[-1]))
-                        self.already_drawing_quotes = self.uncertain_drawing_quotes[:]
-                        self.already_drawing_quotes_direct = DirectType.UP
-                        self.uncertain_drawing_quotes.clear()
-                        self.uncertain_drawing_extremum = quote.low
-                        self.uncertain_drawing_continues_extremum_count = 1
 
     def append_drawing_point(self, point: CzscPoint):
         self.drawing_points.append(point)
@@ -184,3 +161,7 @@ class DrawingBuilder(QuoteEventListener):
         self.drawing_points[-1] = point
         for listener in self.listeners:
             listener.update_latest_drawing_end_point(point)
+
+
+if __name__ == '__main__':
+    quotes, raw_df = get_all_quotes(contract, levels[0])

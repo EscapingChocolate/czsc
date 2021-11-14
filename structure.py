@@ -75,8 +75,8 @@ class Czsc:
                     cur = i
                     while cur < uncertain_len - 1:
                         n = cur + 1
-                        while n < uncertain_len and \
-                                self.uncertain_drawing_quotes[n].high <= self.uncertain_drawing_quotes[cur].high:
+                        while n < uncertain_len and not self.uncertain_drawing_quotes[cur].continuous(
+                                self.uncertain_drawing_quotes[n]):
                             n += 1
                         if not n < uncertain_len:
                             break

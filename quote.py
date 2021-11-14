@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from datetime import datetime
+from base import DirectType
 
 
 class QuoteLevel:
@@ -38,6 +39,9 @@ class Quote:
         self.low = low_price
         self.vol = volume
         self.timestamp = timestamp
+
+    def continuous(self, next_quote, direct: DirectType) -> bool:
+        return next_quote.high > self.high if direct is DirectType.UP else next_quote.low < self.low
 
 
 class QuoteEventListener:
